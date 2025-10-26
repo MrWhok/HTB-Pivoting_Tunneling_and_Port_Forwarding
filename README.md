@@ -4,6 +4,9 @@
     1. [Dynamic Port Forwarding with SSH and SOCKS Tunneling](#dynamic-port-forwarding-with-ssh-and-socks-tunneling)
     2. [Remote/Reverse Port Forwarding with SSH](#remotereverse-port-forwarding-with-ssh)
     3. [Meterpreter Tunneling & Port Forwarding](#meterpreter-tunneling--port-forwarding)
+2. [Playing Pong with Socat](#playing-pong-with-socat)
+    1. [Socat Redirection with a Reverse Shell](#socat-redirection-with-a-reverse-shell)
+    2. [Socat Redirection with a Bind Shell](#socat-redirection-with-a-bind-shell)
 
 ## Introduction
 ### Challenges
@@ -102,3 +105,16 @@
     ```
 
     The answer is `172.16.5.0/255.255.254.0`.
+
+## Playing Pong with Socat
+### Socat Redirection with a Reverse Shell
+#### Challenges
+1. SSH tunneling is required with Socat. True or False?
+
+    It is already mentioned in the module that `Socat is a bidirectional relay tool that can create pipe sockets between 2 independent network channels without needing to use SSH tunneling`. So the answer is `False`.
+
+### Socat Redirection with a Bind Shell
+#### Challenges
+1. What Meterpreter payload did we use to catch the bind shell session? (Submit the full path as the answer)
+
+    The answer is `windows/x64/meterpreter/bind_tcp`.
