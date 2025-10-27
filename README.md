@@ -16,6 +16,8 @@
     1. [DNS Tunneling with Dnscat2](#dns-tunneling-with-dnscat2)
     2. [SOCKS5 Tunneling with Chisel](#socks5-tunneling-with-chisel)
     3. [ICMP Tunneling with SOCKS](#icmp-tunneling-with-socks)
+5. [Double Pivots](#double-pivots)
+    1. [RDP and SOCKS Tunneling with SocksOverRDP](#rdp-and-socks-tunneling-with-socksoverrdp)
 
 ## Introduction
 ### Challenges
@@ -300,3 +302,13 @@
     ```
 
     The answer is `N3Tw0rkTunnelV1sion!`.
+
+## Double Pivots
+### RDP and SOCKS Tunneling with SocksOverRDP
+1. Use the concepts taught in this section to pivot to the Windows server at 172.16.6.155 (jason:WellConnected123!). Submit the contents of Flag.txt on Jason's Desktop.
+
+    To solve this, we can follow every step from this module. Just dont forget to run everyting with administrator previllege.
+
+    ![alt text](Assets/Double2.png)
+
+    The answer is `H0pping@roundwithRDP!`.
